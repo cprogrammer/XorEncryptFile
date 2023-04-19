@@ -1,3 +1,5 @@
+#include "XorEncryptFile.hpp"
+
 #include <fstream>
 #include <filesystem>
 #include <iostream>
@@ -11,72 +13,111 @@
  * \return The calculated kg based on the parameter.
  * \warning Input file and output file should be dfferent.
  */
-int EncryptXOR(const std::filesystem::path &strInputFilename, const std::filesystem::path &outputFilename, const std::string &password)
+int EncryptXOR(const std::filesystem::path &strInputFilename, const std::filesystem::path &strOutputFilename, const std::string &password)
 {
-    int nRet = -1;
-    FILE *inputFile, *outputFile;
+    int nRet = 0;
 
-    do
+    std::ifstream inputStream(strInputFilename, std::ios::binary);
+    std::ofstream outputStream(strOutputFilename, std::ios::binary);
+
+    if (!inputStream || !outputStream)
     {
-        std::size_t nBlockSize = password.length();
-        unsigned char bufferRead[nBlockSize];
+        return -1;
+    }
 
-        // files
-        inputFile = fopen(strInputFilename.c_str(), "rb");
-        outputFile = fopen(outputFilename.c_str(), "wb");
+    // get length of file:
+    inputStream.seekg(0, inputStream.end);
+    std::size_t nFileSize = inputStream.tellg();
+    inputStream.seekg(0, inputStream.beg);
 
-        if (nullptr == inputFile)
-        {
-            std::cerr << "Input file (" << strInputFilename << ") open error" << std::endl;
-            break;
-        }
+    nRet = EncryptXOR(inputStream, nFileSize, outputStream, password);
 
-        if (nullptr == outputFile)
-        {
-            std::cerr << "Output file (" << outputFilename << ") open error" << std::endl;
-            break;
-        }
-
-        fseek(inputFile, 0L, SEEK_END);
-        std::size_t fileSizeBytes = ftell(inputFile);
-        fseek(inputFile, 0L, SEEK_SET);
-
-        std::size_t nBytesCrt = 0;
-        std::size_t progress = -1;
-        std::size_t nBytesRead;
-
-        do
-        {
-            nBytesRead = fread(bufferRead, 1, nBlockSize, inputFile);
-
-            // XOR byte by byte
-            for (int i = 0; i < nBytesRead; i++)
-                bufferRead[i] ^= password[i];
-
-            fwrite(bufferRead, 1, nBytesRead, outputFile);
-
-            nBytesCrt += nBytesRead;
-
-            std::size_t crt_progress = nBytesCrt * 100 / fileSizeBytes;
-            if (crt_progress != progress)
-            {
-                std::cout << '\r' << "progress: [" << crt_progress << "%] : " << strInputFilename << " ... " << std::flush;
-                progress = crt_progress;
-            }
-
-        } while (nBytesRead == nBlockSize);
-
-        nRet = 0;
-        std::cout << "Done" << std::endl;
-
-    } while (0);
-
-    // clean up
-    if(inputFile)
-        fclose(inputFile);
-
-    if(outputFile)
-    fclose(outputFile);
+    inputStream.close();
+    outputStream.close();
 
     return nRet;
 }
+
+/*!
+ * encrypt|decrypt files with XOR operation with a password.
+ * \param inputStream input stream
+ * \param nInputSize input stream. because not all streams are seekable (For example, imagine an istream on a network socket)
+ *  - The return type from tellg() is not necessarily numeric (the only requirement is that it can be passed back to seekg() to return to the same position)
+ *  - Even if it is numeric, it is not necessarily a number of bytes. For example, it could be a "magic" value meaning "at the end"
+ *  - For fstreams, issues like case and linefeed conversion can screw things up
+ *  - seekg(0, ios:end) might not work for large files http://stackoverflow.com/questions/32057750/how-to-get-the-filesize-for-large-files-in-c
+ * \param outputStream output stream
+ * \param password xor key
+ * \return The calculated kg based on the parameter.
+ * \warning Input file and output file should be dfferent.
+ */
+int EncryptXOR(std::istream &inputStream, std::size_t nInputSize, std::ostream &outputStream, const std::string &password)
+{
+    static const std::size_t nBlockSize = 64;
+
+    char bufferRead[nBlockSize] = {};
+
+    std::size_t nBytesCrt = 0;
+
+    do
+    {
+        inputStream.read(bufferRead, nBlockSize);
+        std::size_t nBytesRead = inputStream.gcount();
+
+        for (int i = 0; i < nBytesRead; ++i)
+        {
+            bufferRead[i] ^= password[i % password.length()];
+        }
+
+        outputStream.write(bufferRead, nBytesRead);
+        std::ios_base::iostate write_state = outputStream.rdstate();
+        if (write_state)
+        {
+            throw std::runtime_error("Error writing to file");
+        }
+
+        nBytesCrt += nBytesRead;
+
+        if (0 != nInputSize)
+        {
+            static std::size_t progress = -1;
+            std::size_t crt_progress = nBytesCrt * 100 / nInputSize;
+            if (crt_progress != progress)
+            {
+                Helper::PrintProgress(float(crt_progress) / 100);
+                progress = crt_progress;
+            }
+        }
+
+    } while (inputStream);
+
+    if (0 != nInputSize)
+    {
+        std::cout << std::endl;
+    }
+
+    return 0;
+}
+
+namespace Helper
+{
+    void PrintProgress(float fProgress)
+    {
+        static const std::size_t barWidth = 80;
+
+        std::cout << "[";
+        std::size_t pos = barWidth * fProgress;
+        for (std::size_t i = 0; i < barWidth; ++i)
+        {
+            if (i < pos)
+                std::cout << "=";
+            else if (i == pos)
+                std::cout << ">";
+            else
+                std::cout << " ";
+        }
+        std::cout << "] " << int(fProgress * 100) << " %\r";
+        std::cout.flush();
+    }
+
+} // namespace Helper

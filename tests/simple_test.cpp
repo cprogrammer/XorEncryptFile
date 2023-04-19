@@ -124,3 +124,20 @@ TEST_P(TestOnRandomFile, TestSimple1)
     std::string strCheck = Helper::ReadFile(mTempFileCheck);
     ASSERT_EQ(strContent, strCheck);
 }
+
+TEST(StringTest, SimpleTest1) {
+
+    std::string inputString("Test Simple String");
+    std::istringstream inputStream(inputString);
+    std::stringstream outputStream;
+    std::ostringstream checkStream;
+
+    int nRet = EncryptXOR(inputStream, 0, outputStream, "pass");
+    ASSERT_EQ(nRet, 0);
+
+    nRet = EncryptXOR(outputStream, 0, checkStream, "pass");
+    ASSERT_EQ(nRet, 0);
+
+    ASSERT_EQ(inputStream.str(), checkStream.str());
+
+}

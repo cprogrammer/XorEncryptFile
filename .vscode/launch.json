@@ -6,11 +6,23 @@
     "configurations": [
 
         {
-            "name": "(lldb) Launch",
+            "name": "XorEncryptFile",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/main",
-            "args": ["/Users/vlaggeor/Movies/Desene/File2.dat", "/Users/vlaggeor/Movies/Desene/File2.xor", "taria"],
+            "program": "${workspaceFolder}/build/XorEncryptFile",
+            "args": ["/Users/vlaggeor/_115794.pdf", "/Users/vlaggeor/115794.xor", "password"],
+            "stopAtEntry": false,
+            "cwd": "${fileDirname}",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "lldb"
+        },
+        {
+            "name": "simple_test",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/tests/simple_test",
+            "args": [""],
             "stopAtEntry": false,
             "cwd": "${fileDirname}",
             "environment": [],
